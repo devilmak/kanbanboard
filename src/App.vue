@@ -2,13 +2,13 @@
 <template>
   <main>
     <h1>Kanban Board</h1>
-    <Board  />
+    <KanbanBoard  />
   </main>
 </template>
 
 <script setup>
 import './assets/modal.css'
-import Board  from './components/KanbanBoard.vue'
+import KanbanBoard  from './components/KanbanBoard.vue'
 </script>
 
 <style scoped>
