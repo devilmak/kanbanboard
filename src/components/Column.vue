@@ -1,29 +1,39 @@
 <!-- Shows contents of Column and manages the cards -->
 <script setup>
-import {ref} from 'vue'
-import { db, doc, updateDoc} from '../../firebase.js'
+import { ref, onMounted } from 'vue'
+import { db, collection, doc, addDoc, updateDoc, deleteDoc, getDocs, onSnapshot} from '../../firebase.js'
 import Card from "@/components/Card.vue";
 
 const props = defineProps(['column'])
-const emit = defineEmits(['deleteColumn', 'updateColumn', 'editColumn', 'addCard', 'editCard'])
+const cards = ref([]) // holds cards in this column
+const emit = defineEmits(['deleteColumn', 'editColumn', 'editCard'])
 
 const showModal = ref(false)
-const cardTitle = ref('')
+const cardName = ref('')
 const cardDescription = ref('')
 const isEditingCard = ref(false)
 const editedCardIndex = ref(null)
 
+function editColumn() {
+  emit('editColumn')
+}
+
+function deleteColumn() {
+  emit('deleteColumn')
+}
+
 function openCardModal(index) {
+  const card = cards.value[index] // 🔁 CHANGED
   if (index !== null) {
     // edit card
-    cardTitle.value = props.column.cards[index].title
-    cardDescription.value = props.column.cards[index].description
+    cardName.value = card.title
+    cardDescription.value = card.description
     isEditingCard.value = true
     editedCardIndex.value = index
     showModal.value = true
   } else {
     // add new card
-    cardTitle.value = ''
+    cardName.value = ''
     cardDescription.value = ''
     isEditingCard.value = false
     editedCardIndex.value = null
@@ -32,55 +42,56 @@ function openCardModal(index) {
 }
 
 async function confirmCardModal() {
-  const title = cardTitle.value
+  const title = cardName.value
   const description = cardDescription.value
   if (!title || !description) return
 
-  const updatedColumn = { ...props.column }
-
   if (isEditingCard.value) {
     // edit card
-    updatedColumn.cards[editedCardIndex.value] = {
+    const card = cards.value[editedCardIndex.value]
+    const cardRef = doc(db, 'columns', props.column.id, 'cards', card.id)
+    await updateDoc(cardRef, {
       title,
       description,
       updatedDt: new Date()
-    }
+    })
   } else {
     // add new card
-    updatedColumn.cards.push({
-      title: title,
-      description: description,
+    const cardsRef = collection(db, 'columns', props.column.id, 'cards')
+    await addDoc(cardsRef, {
+      title,
+      description,
       createdDt: new Date(),
       updatedDt: null
     })
   }
-
-  // Save to Firestore
-  const columnRef = doc(db, 'columns', updatedColumn.id)
-  await updateDoc(columnRef, {
-    cards: updatedColumn.cards
-  })
-
-  emit('updateColumn', updatedColumn)
   closeCardModal()
 }
 
 function closeCardModal() {
   showModal.value = false
-  cardTitle.value = ''
+  cardName.value = ''
   cardDescription.value = ''
   editedCardIndex.value = null
 }
 
-function deleteCard(index) {
-  props.column.cards.splice(index, 1) // update page view
-
-  const columnRef = doc(db, 'columns', props.column.id)
-  updateDoc(columnRef, {
-    cards: props.column.cards
-  })
-  emit('updateColumn', props.column) // notify parent
+async function deleteCard(cardId) {
+  const cardRef = doc(db, 'columns', props.column.id, 'cards', cardId)
+  await deleteDoc(cardRef)
 }
+
+// works like ngOnInit
+onMounted(() => {
+  const cardsRef = collection(db, 'columns', props.column.id, 'cards')
+
+  // works as an observable that keep tracks on changes
+  onSnapshot(cardsRef, (snapshot) => {
+    cards.value = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data()
+    }))
+  })
+})
 </script>
 
 <template>
@@ -91,18 +102,18 @@ function deleteCard(index) {
 
     <div class="cards">
       <Card
-          v-for="(card, index) in column.cards"
+          v-for="(card, index) in cards"
           :key="card.id"
           :card="card"
           @editCard="openCardModal(index)"
-          @deleteCard="deleteCard(index)"
+          @deleteCard="deleteCard(card.id)"
       />
     </div>
 
     <div class="column-actions">
-      <button @click="$emit('editColumn')">✏️</button>
+      <button @click="editColumn()">✏️</button>
       <button @click="openCardModal(null)">➕ Task</button>
-      <button @click="$emit('deleteColumn')">🗑️</button>
+      <button @click="deleteColumn()">🗑️</button>
     </div>
   </div>
 
@@ -110,7 +121,7 @@ function deleteCard(index) {
   <div v-if="showModal" class="modal">
     <div class="modal-content">
       <h3>{{ isEditingCard ? 'Edit Task' : 'New Task' }}</h3>
-      <input v-model="cardTitle" placeholder="Task title"/>
+      <input v-model="cardName" placeholder="Task title"/>
       <textarea v-model="cardDescription" placeholder="Task description"/>
       <div class="actions">
         <button @click="confirmCardModal">{{ isEditingCard ? 'Update' : 'Add' }}

@@ -19,7 +19,10 @@ const editedColumnIndex = ref(null)
 async function fetchColumns() {
   const q = query(collection(db, 'columns'), where('boardId', '==', boardId))
   const snapshot = await getDocs(q)
-  columns.value = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+  columns.value = snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data()
+  }))
 }
 
 async function deleteColumn(index) {
@@ -64,7 +67,6 @@ async function confirmColumnModal() {
     const docRef = await addDoc(collection(db, 'columns'), {
       boardId,
       title,
-      cards: [],
       createdDt: new Date(),
       updatedDt: null
     })
@@ -72,8 +74,7 @@ async function confirmColumnModal() {
     columns.value.push({
       id: docRef.id,
       boardId,
-      title,
-      cards: []
+      title
     })
   }
   closeModal()
@@ -89,7 +90,7 @@ function routeToKanbanBoard() {
   router.back()
 }
 
-// Basically ngOnInit -> get initial data upon landing to this page
+// works like ngOnInit
 onMounted(fetchColumns)
 </script>
 
@@ -105,7 +106,6 @@ onMounted(fetchColumns)
           :key="column.id"
           :column="column"
           @deleteColumn="deleteColumn(index)"
-          @updateColumn="columns[index] = $event"
           @editColumn="openModal(index)"
       />
     </div>

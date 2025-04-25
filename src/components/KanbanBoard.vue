@@ -1,9 +1,9 @@
 <!--The MAIN page, manages Boards-->
 <script setup>
 import { ref, onMounted } from 'vue'
-import { db, collection, doc, addDoc, deleteDoc, getDocs } from '../../firebase.js'
+import { db, collection, doc, addDoc, deleteDoc, getDocs, query, updateDoc, where } from '../../firebase.js'
 import { useRouter } from "vue-router";
-import {updateDoc} from "firebase/firestore";
+import {onSnapshot} from "firebase/firestore";
 
 const router = useRouter()
 const boards = ref([])
@@ -12,17 +12,24 @@ const boardName = ref('')
 const isEditingBoard = ref(false)
 const editedBoardIndex = ref(null)
 
-// function to get all boards for initial loading
-async function fetchBoards() {
-  const snapshot = await getDocs(collection(db, 'boards'))
-  boards.value = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
-}
+// cursor
+const isHovering = ref(false);
 
 // function to delete board
+// need to delete columns as it is a separated collection
 async function deleteBoard(boardId) {
+
+  const q = query(collection(db, 'columns'), where('boardId', '==', boardId))
+  const columnDocs = await getDocs(q)
+  const deleteColumnPromises = columnDocs.docs.map(cDoc =>
+      deleteDoc(doc(db, 'columns', cDoc.id))
+  )
+  await Promise.all(deleteColumnPromises) //delete them in parallel
+
   const index = boards.value.findIndex(board => board.id !== boardId)
   boards.value.splice(index, 1) // update page view
   await deleteDoc(doc(db, 'boards', boardId)) // remove the board in db
+
 }
 
 function openBoardModal(index) {
@@ -53,17 +60,12 @@ async function confirmBoardModal() {
       title,
       updatedDt: new Date()
     })
-    // update page view
-    board.title = title
   } else {
-    const docRef = await addDoc(collection(db, 'boards'), {
+    // add to db
+    await addDoc(collection(db, 'boards'), {
       title,
       createdDt: new Date(),
       updatedDt: null
-    })
-    boards.value.push({
-      id: docRef.id,
-      title: boardName.value
     })
     boardName.value = ''
   }
@@ -83,8 +85,18 @@ function routeToBoard(board) {
   })
 }
 
-// Basically ngOnInit -> get initial data on this page
-onMounted(fetchBoards)
+// works like ngOnInit
+onMounted(() => {
+  const boardsRef = collection(db, 'boards')
+
+  // works as an observable that keep tracks on changes
+  onSnapshot(boardsRef, (snapshot) => {
+    boards.value = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data()
+    }))
+  })
+})
 </script>
 
 <template>
@@ -98,6 +110,9 @@ onMounted(fetchBoards)
     <div class="column"
          v-for="(board, index) in boards"
          :key="board.id"
+         :style="{ cursor: isHovering ? 'pointer' : 'default' }"
+         @mouseover="isHovering = true"
+         @mouseleave="isHovering = false"
          @click="routeToBoard(board)"
     >
       <span>{{ board.title }}</span>
@@ -124,12 +139,6 @@ onMounted(fetchBoards)
 
 <style scoped>
 
-.columns {
-  display: flex;
-  gap: 2rem;
-  margin-top: 1rem;
-}
-
 .column {
   border: 1px solid #ccc;
   padding: 1rem;
@@ -146,11 +155,4 @@ onMounted(fetchBoards)
   margin-left: auto;
 }
 
-.column-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-weight: bold;
-  margin-bottom: 0.5rem;
-}
 </style>

@@ -17,7 +17,7 @@ function editCard() {
     <h4>{{ card.title }} </h4>
     <p>{{ card.description }}</p>
     <button @click="editCard">✏️</button>
-    <button @click.stop="deleteCard">🗑️</button>
+    <button @click="deleteCard">🗑️</button>
   </div>
 </template>
 
