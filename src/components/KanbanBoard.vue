@@ -21,8 +21,8 @@ async function fetchBoards() {
 // function to delete board
 async function deleteBoard(boardId) {
   const index = boards.value.findIndex(board => board.id !== boardId)
-  boards.value.splice(index, 1)
-  await deleteDoc(doc(db, 'boards', boardId))
+  boards.value.splice(index, 1) // update page view
+  await deleteDoc(doc(db, 'boards', boardId)) // remove the board in db
 }
 
 function openBoardModal(index) {
@@ -89,7 +89,7 @@ onMounted(fetchBoards)
 
 <template>
   <div class="p-4">
-    <h1 class="text-2xl font-bold mb-4">Kanban Board</h1>
+    <h1 class="text-2xl font-bold mb-4">Simple Kanban Board</h1>
 
     <div class="mb-4">
       <button @click="openBoardModal(null)" class="bg-blue-500 text-white px-4 py-2 rounded">Add Board</button>
@@ -102,7 +102,6 @@ onMounted(fetchBoards)
     >
       <span>{{ board.title }}</span>
       <div class="column-actions">
-<!--        <router-link :to="`/board/${board.id}`" class="text-blue-600 mr-2">Open</router-link>-->
         <button @click.stop="openBoardModal(index)">✏️</button>
         <button @click.stop="deleteBoard(board.id)" class="text-red-500">🗑️</button> <!-- .stop to prevent click from accidental routing -->
       </div>

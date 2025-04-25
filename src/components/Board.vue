@@ -9,7 +9,6 @@ const route = useRoute()
 const router = useRouter()
 const boardId = route.params.id
 const boardName = route.query.boardName
-const props = defineProps(['board'])
 
 const columns = ref([])
 const showModal = ref(false)
@@ -55,14 +54,19 @@ async function confirmColumnModal() {
 
     columns.value[editedColumnIndex.value].title = title
     const columnRef = doc(db, 'columns', column.id)
-    await updateDoc(columnRef, { title })
+    await updateDoc(columnRef, {
+      title,
+      updatedDt: new Date()
+    })
 
   } else {
     // Add the new column to Firestore
     const docRef = await addDoc(collection(db, 'columns'), {
       boardId,
       title,
-      cards: []
+      cards: [],
+      createdDt: new Date(),
+      updatedDt: null
     })
     // add into local ref
     columns.value.push({
@@ -85,15 +89,6 @@ function routeToKanbanBoard() {
   router.back()
 }
 
-function seeLog() {
-  console.log('route params', route.params)
-  console.log('columns', columns.value)
-  console.log('columnName', columnName.value)
-  console.log('isEditingColumn', isEditingColumn.value)
-  console.log('editedColumnIndex', editedColumnIndex.value)
-  console.log('props board', props)
-}
-
 // Basically ngOnInit -> get initial data upon landing to this page
 onMounted(fetchColumns)
 </script>
@@ -103,7 +98,6 @@ onMounted(fetchColumns)
     <h2 class="text-xl font-bold mb-4">{{ boardName }}</h2>
     <button @click="routeToKanbanBoard()">← Back</button>
     <button @click="openModal(null)">+ Add Column</button>
-    <button @click="seeLog">console</button>
 
     <div class="columns">
       <Column
