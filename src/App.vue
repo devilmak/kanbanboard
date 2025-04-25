@@ -1,14 +1,12 @@
 <!-- src/App.vue -->
 <template>
   <main>
-    <h1>Kanban Board</h1>
-    <KanbanBoard  />
+    <router-view/>
   </main>
 </template>
 
 <script setup>
 import './assets/modal.css'
-import KanbanBoard  from './components/KanbanBoard.vue'
 </script>
 
 <style scoped>

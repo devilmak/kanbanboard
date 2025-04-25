@@ -1,10 +1,14 @@
 <script setup>
 
-const props = defineProps(['card'])
+defineProps(['card'])
 const emit = defineEmits(['deleteCard', 'editCard'])
 
 function deleteCard() {
   emit('deleteCard')
+}
+
+function editCard() {
+  emit('editCard')
 }
 
 </script>
@@ -13,7 +17,8 @@ function deleteCard() {
   <div class="card">
     <h4>{{ card.title }} </h4>
     <p>{{ card.description }}</p>
-    <button @click.stop="deleteCard">🗑️</button> <!-- click.stop to prevent clashing with opening card modal at Column side-->
+    <button @click="editCard">✏️</button>
+    <button @click.stop="deleteCard">🗑️</button>
   </div>
 </template>
 

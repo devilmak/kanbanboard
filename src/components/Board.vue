@@ -1,22 +1,27 @@
 <!-- Show contents of Board and manages the columns -->
 <script setup>
 import { ref, onMounted } from 'vue'
-import { db, collection, doc, addDoc, updateDoc, deleteDoc, getDocs } from '../../firebase.js'
+import { useRouter, useRoute } from 'vue-router'
+import { db, collection, doc, addDoc, updateDoc, deleteDoc, getDocs, where, query } from '../../firebase.js'
 import Column from './Column.vue'
 
+const route = useRoute()
+const router = useRouter()
+const boardId = route.params.id
+const boardName = route.query.boardName
 const props = defineProps(['board'])
 
 const columns = ref([])
 const showModal = ref(false)
-const columnTitle = ref('')
+const columnName = ref('')
 const isEditingColumn = ref(false)
 const editedColumnIndex = ref(null)
 
-onMounted(async () => {
-  // Load columns from Firestore
-  const snapshot = await getDocs(collection(db, 'columns'))
+async function fetchColumns() {
+  const q = query(collection(db, 'columns'), where('boardId', '==', boardId))
+  const snapshot = await getDocs(q)
   columns.value = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
-})
+}
 
 async function deleteColumn(index) {
   // Delete column from Firestore
@@ -27,21 +32,21 @@ async function deleteColumn(index) {
 function openModal(index) {
   if (index !== null) {
     // edit column
-    columnTitle.value = columns.value[index].title
+    columnName.value = columns.value[index].title
     isEditingColumn.value = true
     editedColumnIndex.value = index
     showModal.value = true
   } else {
     // add new column
-    columnTitle.value = ''
+    columnName.value = ''
     isEditingColumn.value = false
     editedColumnIndex.value = null
     showModal.value = true
   }
 }
 
-async function confirmModal() {
-  const title = columnTitle.value
+async function confirmColumnModal() {
+  const title = columnName.value
   if (!title) return
 
   if (isEditingColumn.value) {
@@ -55,12 +60,14 @@ async function confirmModal() {
   } else {
     // Add the new column to Firestore
     const docRef = await addDoc(collection(db, 'columns'), {
+      boardId,
       title,
       cards: []
     })
     // add into local ref
     columns.value.push({
       id: docRef.id,
+      boardId,
       title,
       cards: []
     })
@@ -70,33 +77,33 @@ async function confirmModal() {
 
 function closeModal() {
   showModal.value = false
-  columnTitle.value = ''
+  columnName.value = ''
   editedColumnIndex.value = null
 }
 
+function routeToKanbanBoard() {
+  router.back()
+}
+
 function seeLog() {
+  console.log('route params', route.params)
   console.log('columns', columns.value)
-  console.log('columnTitle', columnTitle.value)
+  console.log('columnName', columnName.value)
   console.log('isEditingColumn', isEditingColumn.value)
   console.log('editedColumnIndex', editedColumnIndex.value)
+  console.log('props board', props)
 }
+
+// Basically ngOnInit -> get initial data upon landing to this page
+onMounted(fetchColumns)
 </script>
 
 <template>
   <div class="board">
+    <h2 class="text-xl font-bold mb-4">{{ boardName }}</h2>
+    <button @click="routeToKanbanBoard()">← Back</button>
     <button @click="openModal(null)">+ Add Column</button>
     <button @click="seeLog">console</button>
-    <!-- Shared Modal for Add/Edit -->
-    <div v-if="showModal" class="modal">
-      <div class="modal-content">
-        <h3>{{ isEditingColumn ? 'Edit Column' : 'Add Column' }}</h3>
-        <input v-model="columnTitle" placeholder="Column title" />
-        <div class="actions">
-          <button @click="confirmModal">{{ isEditingColumn ? 'Update' : 'Add' }}</button>
-          <button @click="closeModal">Cancel</button>
-        </div>
-      </div>
-    </div>
 
     <div class="columns">
       <Column
@@ -107,6 +114,18 @@ function seeLog() {
           @updateColumn="columns[index] = $event"
           @editColumn="openModal(index)"
       />
+    </div>
+  </div>
+
+  <!-- Shared Modal for Add/Edit -->
+  <div v-if="showModal" class="modal">
+    <div class="modal-content">
+      <h3>{{ isEditingColumn ? 'Edit Column' : 'Add Column' }}</h3>
+      <input v-model="columnName" placeholder="Column title" />
+      <div class="actions">
+        <button @click="confirmColumnModal">{{ isEditingColumn ? 'Update' : 'Add' }}</button>
+        <button @click="closeModal">Cancel</button>
+      </div>
     </div>
   </div>
 </template>
@@ -122,103 +141,3 @@ function seeLog() {
   margin-top: 1rem;
 }
 </style>
-
-
-<!--<template>-->
-<!--  <div class="board">-->
-<!--    <button @click="openModal(-1)">➕ Column</button>-->
-
-<!--    &lt;!&ndash; Shared Modal for Add/Edit &ndash;&gt;-->
-<!--    <div v-if="showModal" class="modal">-->
-<!--      <div class="modal-content">-->
-<!--        <h3>{{ isEditingColumn ? 'Edit Column' : 'Add Column' }}</h3>-->
-<!--        <input v-model="columnTitle" placeholder="Column title" />-->
-<!--        <div class="actions">-->
-<!--          <button @click="confirmModal">{{ isEditingColumn ? 'Update' : 'Add' }}</button>-->
-<!--          <button @click="closeModal">Cancel</button>-->
-<!--        </div>-->
-<!--      </div>-->
-<!--    </div>-->
-
-<!--    <div class="columns">-->
-<!--      <Column-->
-<!--          v-for="(column, index) in columns"-->
-<!--          :key="column.id"-->
-<!--          :column="column"-->
-<!--          @deleteColumn="deleteColumn(index)"-->
-<!--          @updateColumn="updateColumn(index, $event)"-->
-<!--          @editColumn="openModal(index)"-->
-<!--      />-->
-<!--    </div>-->
-<!--  </div>-->
-<!--</template>-->
-
-<!--<script setup>-->
-<!--import { reactive, ref } from 'vue'-->
-<!--import Column from './Column.vue'-->
-
-<!--const columns = reactive([])-->
-<!--const showModal = ref(false)-->
-<!--const columnTitle = ref('')-->
-<!--const isEditingColumn = ref(false)-->
-<!--const editedColumnIndex = ref(-1)-->
-
-<!--function openModal(index) {-->
-<!--  if (index !== -1) {-->
-<!--    // edit column-->
-<!--    columnTitle.value = columns[index].title-->
-<!--    isEditingColumn.value = true-->
-<!--    editedColumnIndex.value = index-->
-<!--    showModal.value = true-->
-<!--  } else {-->
-<!--    // add new column-->
-<!--    columnTitle.value = ''-->
-<!--    isEditingColumn.value = false-->
-<!--    editedColumnIndex.value = -1-->
-<!--    showModal.value = true-->
-<!--  }-->
-<!--}-->
-
-<!--function confirmModal() {-->
-<!--  const title = columnTitle.value-->
-<!--  if (!title) return-->
-
-<!--  if (isEditingColumn.value) {-->
-<!--    columns[editedColumnIndex.value].title = title-->
-<!--  } else {-->
-<!--    columns.push({-->
-<!--      id: Date.now(),-->
-<!--      title,-->
-<!--      cards: []-->
-<!--    })-->
-<!--  }-->
-
-<!--  closeModal()-->
-<!--}-->
-
-<!--function closeModal() {-->
-<!--  showModal.value = false-->
-<!--  columnTitle.value = ''-->
-<!--  editedColumnIndex.value = -1-->
-<!--}-->
-
-<!--function deleteColumn(index) {-->
-<!--  columns.splice(index, 1)-->
-<!--}-->
-
-<!--function updateColumn(index, updatedColumn) {-->
-<!--  columns[index] = updatedColumn-->
-<!--}-->
-<!--</script>-->
-
-<!--<style scoped>-->
-<!--.board {-->
-<!--  padding: 1rem;-->
-<!--}-->
-
-<!--.columns {-->
-<!--  display: flex;-->
-<!--  gap: 1rem;-->
-<!--  margin-top: 1rem;-->
-<!--}-->
-<!--</style>-->

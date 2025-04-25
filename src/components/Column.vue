@@ -11,7 +11,7 @@ const showModal = ref(false)
 const cardTitle = ref('')
 const cardDescription = ref('')
 const isEditingCard = ref(false)
-const editedCardIndex = ref(-1)
+const editedCardIndex = ref(null)
 
 function openCardModal(index) {
   if (index !== null) {
@@ -26,7 +26,7 @@ function openCardModal(index) {
     cardTitle.value = ''
     cardDescription.value = ''
     isEditingCard.value = false
-    editedCardIndex.value = -1
+    editedCardIndex.value = null
     showModal.value = true
   }
 }
@@ -63,7 +63,7 @@ function closeCardModal() {
   showModal.value = false
   cardTitle.value = ''
   cardDescription.value = ''
-  editedCardIndex.value = -1
+  editedCardIndex.value = null
 }
 
 function deleteCard(index) {
@@ -82,7 +82,7 @@ function deleteCard(index) {
           v-for="(card, index) in column.cards"
           :key="card.id"
           :card="card"
-          @click="openCardModal(index)"
+          @editCard="openCardModal(index)"
           @deleteCard="deleteCard(index)"
       />
     </div>
@@ -92,18 +92,18 @@ function deleteCard(index) {
       <button @click="openCardModal(null)">➕ Task</button>
       <button @click="$emit('deleteColumn')">🗑️</button>
     </div>
+  </div>
 
-    <!-- Card Modal -->
-    <div v-if="showModal" class="modal">
-      <div class="modal-content">
-        <h3>{{ isEditingCard ? 'Edit Task' : 'New Task' }}</h3>
-        <input v-model="cardTitle" placeholder="Task title" />
-        <textarea v-model="cardDescription" placeholder="Task description" />
-        <div class="actions">
-          <button @click="confirmCardModal">{{ isEditingCard ? 'Update' : 'Add' }}
-          </button>
-          <button @click="closeCardModal">Cancel</button>
-        </div>
+  <!-- Card Modal -->
+  <div v-if="showModal" class="modal">
+    <div class="modal-content">
+      <h3>{{ isEditingCard ? 'Edit Task' : 'New Task' }}</h3>
+      <input v-model="cardTitle" placeholder="Task title" />
+      <textarea v-model="cardDescription" placeholder="Task description" />
+      <div class="actions">
+        <button @click="confirmCardModal">{{ isEditingCard ? 'Update' : 'Add' }}
+        </button>
+        <button @click="closeCardModal">Cancel</button>
       </div>
     </div>
   </div>
@@ -135,6 +135,7 @@ function deleteCard(index) {
 
 .column-actions {
   display: flex;
+  margin-top: 1rem;
   margin-left: auto;
 }
 
