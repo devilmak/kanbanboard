@@ -96,9 +96,11 @@ onMounted(fetchColumns)
 
 <template>
   <div class="board">
-    <h2 class="text-xl font-bold mb-4">{{ boardName }}</h2>
-    <button @click="routeToKanbanBoard()">← Back</button>
-    <button @click="openModal(null)">+ Add Column</button>
+    <h2 class="text-2xl font-bold mb-5">{{ boardName }}</h2>
+    <div class="container flex">
+      <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded" @click="routeToKanbanBoard()">← Back</button>
+      <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded" @click="openModal(null)">+ Add Column</button>
+    </div>
 
     <div class="columns">
       <Column

@@ -101,7 +101,7 @@ onMounted(() => {
 
 <template>
   <div class="p-4">
-    <h1 class="text-2xl font-bold mb-4">Simple Kanban Board</h1>
+    <div class="text-2xl font-bold mb-4">Simple Kanban Board</div>
 
     <div class="mb-4">
       <button @click="openBoardModal(null)" class="bg-blue-500 text-white px-4 py-2 rounded">Add Board</button>
