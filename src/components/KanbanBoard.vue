@@ -4,6 +4,7 @@ import { ref, onMounted } from 'vue'
 import { db, collection, doc, addDoc, deleteDoc, getDocs, query, updateDoc, where } from '../../firebase.js'
 import { useRouter } from "vue-router";
 import {onSnapshot} from "firebase/firestore";
+import { Pencil, Trash } from 'lucide-vue-next'
 
 const router = useRouter()
 const boards = ref([])
@@ -100,59 +101,61 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="p-4">
-    <div class="text-2xl font-bold mb-4">Simple Kanban Board</div>
-
-    <div class="mb-4">
-      <button @click="openBoardModal(null)" class="bg-blue-500 text-white px-4 py-2 rounded">Add Board</button>
+  <header class="sticky top-0 shadow bg-gray-200">
+    <div class="flex flex-row py-6 px-4 justify-between">
+      <p class="text-3xl">Simple Kanban Board</p>
+      <button class="bg-blue-500 text-white px-4 py-2 rounded"
+              @click="openBoardModal(null)"
+      >Add Board
+      </button>
     </div>
+  </header>
 
-    <div class="column"
+  <div class="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div class="flex flex-col justify-center p-4 bg-white rounded-xl shadow hover:bg-gray-300 transition cursor-pointer"
          v-for="(board, index) in boards"
          :key="board.id"
-         :style="{ cursor: isHovering ? 'pointer' : 'default' }"
-         @mouseover="isHovering = true"
-         @mouseleave="isHovering = false"
          @click="routeToBoard(board)"
     >
-      <span>{{ board.title }}</span>
-      <div class="column-actions">
-        <button @click.stop="openBoardModal(index)">✏️</button>
-        <button @click.stop="deleteBoard(board.id)" class="text-red-500">🗑️</button> <!-- .stop to prevent click from accidental routing -->
+      <span class="text-xl">{{ board.title }}</span>
+      <div class="flex justify-end-safe gap-4">
+        <!-- Edit button-->
+        <!-- @click.stop to prevent click from accidental routing -->
+        <button class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition cursor-pointer"
+                aria-label="Edit"
+                @click.stop="openBoardModal(index)"
+        >
+          <Pencil class="w-5 h-5 text-gray-600" />
+        </button>
+        <button class="p-2 rounded-full hover:bg-red-100 dark:hover:bg-red-800 transition cursor-pointer"
+                aria-label="Delete"
+                @click.stop="deleteBoard(board.id)"
+        >
+          <Trash class="w-5 h-5 text-red-500" />
+        </button>
       </div>
     </div>
   </div>
 
   <!--  Board Modal-->
-  <div v-if="showModal" class="modal">
-    <div class="modal-content">
-      <h3>{{ isEditingBoard ? 'Edit Task' : 'New Task' }}</h3>
-      <input v-model="boardName" placeholder="Board title" />
-      <div class="actions">
-        <button @click="confirmBoardModal">{{ isEditingBoard ? 'Update' : 'Add' }}
+  <div v-if="showModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 w-full max-w-md">
+      <h3 class="text-xl font-semibold mb-4 text-gray-800 dark:text-white">{{ isEditingBoard ? 'Edit Board' : 'New Board' }}</h3>
+      <input class="w-full px-4 py-2 mb-4 border rounded-lg text-gray-800 dark:text-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+             v-model="boardName"
+             placeholder="Board title"
+      />
+      <div class="flex justify-end space-x-2">
+        <button class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                @click="confirmBoardModal"
+        >{{ isEditingBoard ? 'Update' : 'Add' }}
         </button>
-        <button @click="closeBoardModal">Cancel</button>
+        <button class="px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                @click="closeBoardModal"
+        >Cancel
+        </button>
       </div>
     </div>
   </div>
+
 </template>
-
-<style scoped>
-
-.column {
-  border: 1px solid #ccc;
-  padding: 1rem;
-  width: 250px;
-  background: #f9f9f9;
-  border-radius: 6px;
-  display: flex;
-  flex-direction: column;
-  margin-top: 1rem;
-}
-
-.column-actions {
-  display: flex;
-  margin-left: auto;
-}
-
-</style>
