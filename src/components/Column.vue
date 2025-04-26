@@ -1,9 +1,10 @@
 <!-- Shows contents of Column and manages the cards -->
 <script setup>
 import { ref, onMounted } from 'vue'
-import { db, collection, doc, addDoc, updateDoc, deleteDoc, getDocs, onSnapshot} from '../../firebase.js'
+import { db, collection, doc, addDoc, updateDoc, deleteDoc, getDocs, onSnapshot, writeBatch, query, orderBy, serverTimestamp } from '../../firebase.js'
 import Card from "@/components/Card.vue";
 import {Pencil, Trash, SquarePlus} from "lucide-vue-next";
+import draggable from 'vuedraggable'
 
 const props = defineProps(['column'])
 const cards = ref([]) // holds cards in this column
@@ -54,16 +55,20 @@ async function confirmCardModal() {
     await updateDoc(cardRef, {
       title,
       description,
-      updatedDt: new Date()
+      updatedDt: serverTimestamp()
     })
   } else {
     // add new card
     const cardsRef = collection(db, 'columns', props.column.id, 'cards')
+    const cardsDocs = await getDocs(cardsRef)
+    const sortOrder = cardsDocs.size
+
     await addDoc(cardsRef, {
       title,
       description,
-      createdDt: new Date(),
-      updatedDt: null
+      createdDt: serverTimestamp(),
+      updatedDt: null,
+      sortOrder
     })
   }
   closeCardModal()
@@ -81,6 +86,72 @@ async function deleteCard(cardId) {
   await deleteDoc(cardRef)
 }
 
+function onDragStart(evt) {
+  const card = cards.value[evt.oldIndex]
+  if (card) {
+    card.originalColumnId = props.column.id // temporarily add
+  }
+}
+
+async function onDragAdd(evt) {
+  const movedCard = evt.item.__draggable_context.element // vuedraggable exposes it here
+  const fromColumnId = movedCard.originalColumnId
+  const toColumnId = props.column.id
+
+  console.log('Moving card:', movedCard.title, 'from', fromColumnId, 'to', toColumnId)
+
+  if (fromColumnId && toColumnId && fromColumnId !== toColumnId) {
+    // writeBatch is to commit all changes at once
+    const batch = writeBatch(db)
+
+    // 1. Remove card from old column
+    const oldCardRef = doc(db, 'columns', fromColumnId, 'cards', movedCard.id)
+    batch.delete(oldCardRef)
+
+    // 2. Find current number of cards in the designated column
+    const cardsRef = collection(db, 'columns', toColumnId, 'cards')
+    const cardsQuery = query(cardsRef, orderBy('sortOrder'))
+    const cardsDocs = await getDocs(cardsQuery)
+
+    const designatedCards = cardsDocs.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }))
+    const newSortOrder = evt.newIndex ?? designatedCards.length // fallback if newIndex undefined
+
+    // 3.Add to new column
+    const newCardRef = doc(collection(db, 'columns', toColumnId, 'cards'))
+    batch.set(newCardRef, {
+      title: movedCard.title,
+      description: movedCard.description,
+      createdDt: serverTimestamp(),
+      updatedDt: null,
+      sortOrder: newSortOrder
+    })
+    await batch.commit()
+  }
+
+  // Cleanup temporary field
+  delete movedCard.originalColumnId
+}
+
+async function onDragEnd(evt) {
+  console.log('evt', evt)
+  if (!evt.from || !evt.to || evt.from !== evt.to) {
+    // Skip cross-column drags, they handled already
+    return
+  }
+
+  const batch = writeBatch(db)
+  cards.value.forEach((card, index) => {
+    const cardRef = doc(db, 'columns', props.column.id, 'cards', card.id)
+    batch.update(cardRef, { sortOrder: index })
+  })
+  await batch.commit()
+
+  console.log('Reordered cards saved')
+}
+
 // works like ngOnInit
 onMounted(() => {
   const cardsRef = collection(db, 'columns', props.column.id, 'cards')
@@ -91,51 +162,58 @@ onMounted(() => {
       id: doc.id,
       ...doc.data()
     }))
+    cards.value.sort((a,b) => a.sortOrder - b.sortOrder)
   })
 })
 </script>
 
 <template>
-  <div class="flex flex-col p-4 bg-white rounded-xl shadow">
-    <header class="flex items-center justify-between">
-      <div class="flex-1 text-center text-xl font-bold">
-        {{ column.title }}
-      </div>
-      <button class="p-2 rounded-full hover:bg-gray-200 cursor-pointer"
-              aria-label="Edit"
-              @click="editColumn()"
-      >
-        <Pencil class="w-5 h-5 text-gray-600" />
-      </button>
-    </header>
-    <hr class="h-px my-2 bg-gray-200 border-0 dark:bg-gray-700">
+  <header class="flex items-center justify-between">
+    <div class="flex-1 text-center text-xl font-bold">
+      {{ column.title }}
+    </div>
+    <button class="p-2 rounded-full hover:bg-gray-200 cursor-pointer"
+            aria-label="Edit"
+            @click="editColumn()"
+    >
+      <Pencil class="w-5 h-5 text-gray-600" />
+    </button>
+  </header>
+  <hr class="h-px my-2 bg-gray-200 border-0 dark:bg-gray-700">
 
-    <!-- Loop through each card -->
-    <div class="cards">
-      <Card
-          v-for="(card, index) in cards"
-          :key="card.id"
-          :card="card"
-          @editCard="openCardModal(index)"
-          @deleteCard="deleteCard(card.id)"
+  <!-- Make each card draggable -->
+  <draggable class="flex flex-col gap-2"
+             v-model="cards"
+             :group="{ name: 'cards', put: true, pull:true }"
+             :data-column-id="column.id"
+             item-key="id"
+             @start="onDragStart"
+             @add="onDragAdd"
+             @end="onDragEnd"
+  >
+    <template #item="{ element: card, index }">
+      <Card :card="card"
+            @editCard="openCardModal(index)"
+            @deleteCard="deleteCard(card.id)"
       />
-    </div>
-    <div class="flex justify-end-safe gap-2">
-      <!-- Add button-->
-      <button class="p-2 rounded-full hover:bg-gray-200 cursor-pointer"
-              aria-label="Add"
-              @click="openCardModal(null)"
-      >
-        <SquarePlus class="w-5 h-5 text-gray-600"/>
-      </button>
-      <!-- Delete button-->
-      <button class="p-2 rounded-full hover:bg-red-100 cursor-pointer"
-              aria-label="Delete"
-              @click="deleteColumn()"
-      >
-        <Trash class="w-5 h-5 text-red-500" />
-      </button>
-    </div>
+    </template>
+  </draggable>
+
+  <div class="flex justify-end-safe gap-2">
+    <!-- Add button-->
+    <button class="p-2 rounded-full hover:bg-gray-200 cursor-pointer"
+            aria-label="Add"
+            @click="openCardModal(null)"
+    >
+      <SquarePlus class="w-5 h-5 text-gray-600"/>
+    </button>
+    <!-- Delete button-->
+    <button class="p-2 rounded-full hover:bg-red-100 cursor-pointer"
+            aria-label="Delete"
+            @click="deleteColumn()"
+    >
+      <Trash class="w-5 h-5 text-red-500" />
+    </button>
   </div>
 
   <!-- Card Modal -->

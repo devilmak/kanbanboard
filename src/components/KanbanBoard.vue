@@ -1,7 +1,20 @@
 <!--The MAIN page, manages Boards-->
 <script setup>
 import { ref, onMounted } from 'vue'
-import { db, collection, doc, addDoc, deleteDoc, getDocs, onSnapshot, query, updateDoc, where, orderBy } from '../../firebase.js'
+import {
+  db,
+  collection,
+  doc,
+  addDoc,
+  deleteDoc,
+  getDocs,
+  onSnapshot,
+  query,
+  updateDoc,
+  where,
+  serverTimestamp,
+  writeBatch
+} from '../../firebase.js'
 import { useRouter } from "vue-router"
 import draggable from 'vuedraggable'
 import {Pencil, Plus, Trash} from 'lucide-vue-next'
@@ -13,24 +26,30 @@ const boardName = ref('')
 const isEditingBoard = ref(false)
 const editedBoardIndex = ref(null)
 
-// cursor
-const isHovering = ref(false);
-
 // function to delete board
 // need to delete columns as it is a separated collection
 async function deleteBoard(boardId) {
+  const batch = writeBatch(db)
 
+  // Query all columns belonging to the board
   const q = query(collection(db, 'columns'), where('boardId', '==', boardId))
   const columnDocs = await getDocs(q)
-  const deleteColumnPromises = columnDocs.docs.map(cDoc =>
-      deleteDoc(doc(db, 'columns', cDoc.id))
-  )
-  await Promise.all(deleteColumnPromises) //delete them in parallel
 
-  const index = boards.value.findIndex(board => board.id !== boardId)
-  boards.value.splice(index, 1) // update page view
-  await deleteDoc(doc(db, 'boards', boardId)) // remove the board in db
+  // Queue all column deletions
+  columnDocs.forEach((cDoc) => {
+    const colRef = doc(db, 'columns', cDoc.id)
+    batch.delete(colRef)
+  })
 
+  // Queue the board deletion
+  const boardRef = doc(db, 'boards', boardId)
+  batch.delete(boardRef)
+
+  // Commit all deletes at once
+  await batch.commit()
+
+  // Fix remaining sort orders
+  await fixSortOrders()
 }
 
 function openBoardModal(index) {
@@ -59,14 +78,14 @@ async function confirmBoardModal() {
     const boardRef = doc(db, 'boards', board.id)
     await updateDoc(boardRef, {
       title,
-      updatedDt: new Date()
+      updatedDt: serverTimestamp()
     })
   } else {
     // add to db
     const orderIndex = boards.value.length
     await addDoc(collection(db, 'boards'), {
       title,
-      createdDt: new Date(),
+      createdDt: serverTimestamp(),
       updatedDt: null,
       sortOrder: orderIndex,
     })
@@ -90,11 +109,18 @@ function routeToBoard(board) {
 
 // persist data after drag-and-drop
 async function onReorder() {
-  for (let i = 0; i < boards.value.length; i++) {
-    const board = boards.value[i]
+  await fixSortOrders()
+}
+
+async function fixSortOrders() {
+  const batch = writeBatch(db)
+
+  boards.value.forEach((board, idx) => {
     const boardRef = doc(db, 'boards', board.id)
-    await updateDoc(boardRef, { sortOrder: i })
-  }
+    batch.update(boardRef, { sortOrder: idx })
+  })
+
+  await batch.commit()
 }
 
 // works like ngOnInit
@@ -107,7 +133,7 @@ onMounted(() => {
       id: doc.id,
       ...doc.data()
     }))
-    boards.value.sort((a,b) => a.sortOrder - b.sortOrder)
+    .sort((a,b) => a.sortOrder - b.sortOrder)
   })
 })
 </script>

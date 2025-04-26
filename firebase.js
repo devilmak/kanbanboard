@@ -12,7 +12,9 @@ import {
     where,
     query,
     onSnapshot,
-    orderBy
+    orderBy,
+    writeBatch,
+    serverTimestamp
 } from 'firebase/firestore';
 
 const firebaseConfig = {
@@ -39,5 +41,7 @@ export {
     where,
     query,
     onSnapshot,
-    orderBy
+    orderBy,
+    writeBatch,
+    serverTimestamp
 };

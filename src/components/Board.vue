@@ -2,9 +2,10 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { db, collection, doc, addDoc, updateDoc, deleteDoc, getDocs, where, query, orderBy} from '../../firebase.js'
+import { db, collection, doc, addDoc, updateDoc, deleteDoc, getDocs, where, query, orderBy, onSnapshot, writeBatch, serverTimestamp } from '../../firebase.js'
 import Column from './Column.vue'
 import { ArrowLeft, Plus } from "lucide-vue-next";
+import draggable from 'vuedraggable'
 
 const route = useRoute()
 const router = useRouter()
@@ -17,20 +18,14 @@ const columnName = ref('')
 const isEditingColumn = ref(false)
 const editedColumnIndex = ref(null)
 
-async function fetchColumns() {
-  const q = query(collection(db, 'columns'), where('boardId', '==', boardId,  orderBy('createdDt')))
-  console.log('query', q)
-  const snapshot = await getDocs(q)
-  columns.value = snapshot.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data()
-  }))
-}
-
 async function deleteColumn(index) {
   // Delete column from Firestore
-  await deleteDoc(doc(db, 'columns', columns.value[index].id))
-  columns.value.splice(index, 1)
+  const column = columns.value[index]
+  const columnRef = doc(db, 'columns', column.id)
+  await deleteDoc(columnRef)
+
+  // Reassign sortOrder properly
+  await fixSortOrders()
 }
 
 function openColumnModal(index) {
@@ -61,22 +56,17 @@ async function confirmColumnModal() {
     const columnRef = doc(db, 'columns', column.id)
     await updateDoc(columnRef, {
       title,
-      updatedDt: new Date()
+      updatedDt: serverTimestamp()
     })
-
   } else {
     // Add the new column to Firestore
-    const docRef = await addDoc(collection(db, 'columns'), {
+    const orderIndex = columns.value.length
+    await addDoc(collection(db, 'columns'), {
       boardId,
       title,
-      createdDt: new Date(),
-      updatedDt: null
-    })
-    // add into local ref
-    columns.value.push({
-      id: docRef.id,
-      boardId,
-      title
+      createdDt: serverTimestamp(),
+      updatedDt: null,
+      sortOrder: orderIndex
     })
   }
   closeColumnModal()
@@ -92,14 +82,41 @@ function routeToKanbanBoard() {
   router.back()
 }
 
+// persist data after drag-and-drop
+async function onReorder() {
+  await fixSortOrders()
+}
+
+async function fixSortOrders() {
+  const batch = writeBatch(db)
+
+  columns.value.forEach((col, idx) => {
+    const colRef = doc(db, 'columns', col.id)
+    batch.update(colRef, { sortOrder: idx })
+  })
+
+  await batch.commit()
+}
+
 // works like ngOnInit
-onMounted(fetchColumns)
+onMounted(() => {
+  const q = query(collection(db, 'columns'), where('boardId', '==', boardId), orderBy('sortOrder')
+  )
+
+  onSnapshot(q, (snapshot) => {
+    columns.value = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }))
+  })
+})
 </script>
 
 <template>
   <header class="sticky top-0 shadow bg-gray-200">
     <div class="flex flex-row py-6 px-4 justify-between">
       <div class="flex">
+        <!-- Add Back button -->
         <button class="text-white p-2 rounded hover:bg-gray-100 cursor-pointer"
                 @click="routeToKanbanBoard()"
         >
@@ -107,6 +124,7 @@ onMounted(fetchColumns)
         </button>
         <h1 class="text-3xl px-5">{{ boardName }}</h1>
       </div>
+      <!-- Add Column button -->
       <button class="flex items-center bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 cursor-pointer align-middle"
               @click="openColumnModal(null)"
       >
@@ -116,15 +134,22 @@ onMounted(fetchColumns)
     </div>
   </header>
 
-  <div class="p-4 grid grid-cols-5 gap-4">
-      <Column
-          v-for="(column, index) in columns"
-          :key="column.id"
-          :column="column"
-          @deleteColumn="deleteColumn(index)"
-          @editColumn="openColumnModal(index)"
-      />
-  </div>
+  <!-- Make each column draggable -->
+  <draggable class="p-4 grid grid-cols-5 gap-4"
+             v-model="columns"
+             item-key="id"
+             @end="onReorder"
+  >
+    <template #item="{ element, index }">
+      <div class="flex flex-col p-4 bg-white rounded-xl shadow">
+        <Column
+            :column="element"
+            @deleteColumn="deleteColumn(index)"
+            @editColumn="openColumnModal(index)"
+        />
+      </div>
+    </template>
+  </draggable>
 
   <!-- Shared Modal for Add/Edit -->
   <div v-if="showModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
