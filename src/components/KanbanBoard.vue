@@ -1,9 +1,9 @@
 <!--The MAIN page, manages Boards-->
 <script setup>
 import { ref, onMounted } from 'vue'
-import { db, collection, doc, addDoc, deleteDoc, getDocs, query, updateDoc, where, orderBy } from '../../firebase.js'
-import { useRouter } from "vue-router";
-import {onSnapshot} from "firebase/firestore";
+import { db, collection, doc, addDoc, deleteDoc, getDocs, onSnapshot, query, updateDoc, where, orderBy } from '../../firebase.js'
+import { useRouter } from "vue-router"
+import draggable from 'vuedraggable'
 import {Pencil, Plus, Trash} from 'lucide-vue-next'
 
 const router = useRouter()
@@ -63,10 +63,12 @@ async function confirmBoardModal() {
     })
   } else {
     // add to db
+    const orderIndex = boards.value.length
     await addDoc(collection(db, 'boards'), {
       title,
       createdDt: new Date(),
-      updatedDt: null
+      updatedDt: null,
+      sortOrder: orderIndex,
     })
     boardName.value = ''
   }
@@ -86,17 +88,26 @@ function routeToBoard(board) {
   })
 }
 
+// persist data after drag-and-drop
+async function onReorder() {
+  for (let i = 0; i < boards.value.length; i++) {
+    const board = boards.value[i]
+    const boardRef = doc(db, 'boards', board.id)
+    await updateDoc(boardRef, { sortOrder: i })
+  }
+}
+
 // works like ngOnInit
 onMounted(() => {
   const boardsRef = collection(db, 'boards')
-  const q = query(boardsRef, orderBy('createdDt')) // 👈 sort by created date ascending
 
   // works as an observable that keep tracks on changes
-  onSnapshot(q, (snapshot) => {
+  onSnapshot(boardsRef, (snapshot) => {
     boards.value = snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data()
     }))
+    boards.value.sort((a,b) => a.sortOrder - b.sortOrder)
   })
 })
 </script>
@@ -114,33 +125,53 @@ onMounted(() => {
     </div>
   </header>
 
-  <div class="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-    <!-- Loop through each board -->
-    <div class="flex flex-col justify-center p-4 bg-white rounded-xl shadow hover:bg-gray-300 cursor-pointer"
-         v-for="(board, index) in boards"
-         :key="board.id"
-         @click="routeToBoard(board)"
-    >
-      <span class="text-xl">{{ board.title }}</span>
-      <div class="flex justify-end-safe gap-4">
-        <!-- Edit button-->
-        <!-- @click.stop to prevent click from accidental routing -->
-        <button class="p-2 rounded-full hover:bg-gray-100 cursor-pointer"
-                aria-label="Edit"
-                @click.stop="openBoardModal(index)"
-        >
-          <Pencil class="w-5 h-5 text-gray-600" />
-        </button>
-        <!-- Delete button-->
-        <button class="p-2 rounded-full hover:bg-red-100 cursor-pointer"
-                aria-label="Delete"
-                @click.stop="deleteBoard(board.id)"
-        >
-          <Trash class="w-5 h-5 text-red-500" />
-        </button>
+  <draggable class="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+             v-model="boards"
+             item-key="id"
+             @end="onReorder">
+    <template #item="{ element: board, index }">
+      <div class="flex flex-col justify-center p-4 bg-white rounded-xl shadow hover:bg-gray-300 cursor-pointer"
+           @click="routeToBoard(board)">
+        <span class="text-xl">{{ board.title }}</span>
+        <div class="flex justify-end-safe gap-4">
+          <button @click.stop="openBoardModal(index)">
+            <Pencil class="w-5 h-5 text-gray-600" />
+          </button>
+          <button @click.stop="deleteBoard(board.id)">
+            <Trash class="w-5 h-5 text-red-500" />
+          </button>
+        </div>
       </div>
-    </div>
-  </div>
+    </template>
+  </draggable>
+
+<!--  <div class="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">-->
+<!--    &lt;!&ndash; Loop through each board &ndash;&gt;-->
+<!--    <div class="flex flex-col justify-center p-4 bg-white rounded-xl shadow hover:bg-gray-300 cursor-pointer"-->
+<!--         v-for="(board, index) in boards"-->
+<!--         :key="board.id"-->
+<!--         @click="routeToBoard(board)"-->
+<!--    >-->
+<!--      <span class="text-xl">{{ board.title }}</span>-->
+<!--      <div class="flex justify-end-safe gap-4">-->
+<!--        &lt;!&ndash; Edit button&ndash;&gt;-->
+<!--        &lt;!&ndash; @click.stop to prevent click from accidental routing &ndash;&gt;-->
+<!--        <button class="p-2 rounded-full hover:bg-gray-100 cursor-pointer"-->
+<!--                aria-label="Edit"-->
+<!--                @click.stop="openBoardModal(index)"-->
+<!--        >-->
+<!--          <Pencil class="w-5 h-5 text-gray-600" />-->
+<!--        </button>-->
+<!--        &lt;!&ndash; Delete button&ndash;&gt;-->
+<!--        <button class="p-2 rounded-full hover:bg-red-100 cursor-pointer"-->
+<!--                aria-label="Delete"-->
+<!--                @click.stop="deleteBoard(board.id)"-->
+<!--        >-->
+<!--          <Trash class="w-5 h-5 text-red-500" />-->
+<!--        </button>-->
+<!--      </div>-->
+<!--    </div>-->
+<!--  </div>-->
 
   <!--  Board Modal-->
   <div v-if="showModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
