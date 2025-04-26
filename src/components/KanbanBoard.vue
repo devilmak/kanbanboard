@@ -145,34 +145,6 @@ onMounted(() => {
     </template>
   </draggable>
 
-<!--  <div class="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">-->
-<!--    &lt;!&ndash; Loop through each board &ndash;&gt;-->
-<!--    <div class="flex flex-col justify-center p-4 bg-white rounded-xl shadow hover:bg-gray-300 cursor-pointer"-->
-<!--         v-for="(board, index) in boards"-->
-<!--         :key="board.id"-->
-<!--         @click="routeToBoard(board)"-->
-<!--    >-->
-<!--      <span class="text-xl">{{ board.title }}</span>-->
-<!--      <div class="flex justify-end-safe gap-4">-->
-<!--        &lt;!&ndash; Edit button&ndash;&gt;-->
-<!--        &lt;!&ndash; @click.stop to prevent click from accidental routing &ndash;&gt;-->
-<!--        <button class="p-2 rounded-full hover:bg-gray-100 cursor-pointer"-->
-<!--                aria-label="Edit"-->
-<!--                @click.stop="openBoardModal(index)"-->
-<!--        >-->
-<!--          <Pencil class="w-5 h-5 text-gray-600" />-->
-<!--        </button>-->
-<!--        &lt;!&ndash; Delete button&ndash;&gt;-->
-<!--        <button class="p-2 rounded-full hover:bg-red-100 cursor-pointer"-->
-<!--                aria-label="Delete"-->
-<!--                @click.stop="deleteBoard(board.id)"-->
-<!--        >-->
-<!--          <Trash class="w-5 h-5 text-red-500" />-->
-<!--        </button>-->
-<!--      </div>-->
-<!--    </div>-->
-<!--  </div>-->
-
   <!--  Board Modal-->
   <div v-if="showModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
     <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 w-full max-w-md">
