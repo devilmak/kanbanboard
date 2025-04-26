@@ -3,6 +3,7 @@
 import { ref, onMounted } from 'vue'
 import { db, collection, doc, addDoc, updateDoc, deleteDoc, getDocs, onSnapshot} from '../../firebase.js'
 import Card from "@/components/Card.vue";
+import {Pencil, Trash, SquarePlus} from "lucide-vue-next";
 
 const props = defineProps(['column'])
 const cards = ref([]) // holds cards in this column
@@ -95,11 +96,21 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="column">
-    <div class="column-header">
-      <div>{{ column.title }}</div>
-    </div>
+  <div class="flex flex-col p-4 bg-white rounded-xl shadow">
+    <header class="flex items-center justify-between">
+      <div class="flex-1 text-center text-xl font-bold">
+        {{ column.title }}
+      </div>
+      <button class="p-2 rounded-full hover:bg-gray-200 cursor-pointer"
+              aria-label="Edit"
+              @click="editColumn()"
+      >
+        <Pencil class="w-5 h-5 text-gray-600" />
+      </button>
+    </header>
+    <hr class="h-px my-2 bg-gray-200 border-0 dark:bg-gray-700">
 
+    <!-- Loop through each card -->
     <div class="cards">
       <Card
           v-for="(card, index) in cards"
@@ -109,70 +120,46 @@ onMounted(() => {
           @deleteCard="deleteCard(card.id)"
       />
     </div>
-
-    <div class="column-actions">
-      <button @click="editColumn()">✏️</button>
-      <button @click="openCardModal(null)">➕ Task</button>
-      <button @click="deleteColumn()">🗑️</button>
+    <div class="flex justify-end-safe gap-2">
+      <!-- Add button-->
+      <button class="p-2 rounded-full hover:bg-gray-200 cursor-pointer"
+              aria-label="Add"
+              @click="openCardModal(null)"
+      >
+        <SquarePlus class="w-5 h-5 text-gray-600"/>
+      </button>
+      <!-- Delete button-->
+      <button class="p-2 rounded-full hover:bg-red-100 cursor-pointer"
+              aria-label="Delete"
+              @click="deleteColumn()"
+      >
+        <Trash class="w-5 h-5 text-red-500" />
+      </button>
     </div>
   </div>
 
   <!-- Card Modal -->
-  <div v-if="showModal" class="modal">
-    <div class="modal-content">
-      <h3>{{ isEditingCard ? 'Edit Task' : 'New Task' }}</h3>
-      <input v-model="cardName" placeholder="Task title"/>
-      <textarea v-model="cardDescription" placeholder="Task description"/>
-      <div class="actions">
-        <button @click="confirmCardModal">{{ isEditingCard ? 'Update' : 'Add' }}
+  <div v-if="showModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 w-full max-w-md">
+      <h3 class="text-xl font-semibold mb-4 text-gray-800 dark:text-white">{{ isEditingCard ? 'Edit Task' : 'New Task' }}</h3>
+      <input class="w-full px-4 py-2 mb-4 border rounded-lg text-gray-800 dark:text-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+             v-model="cardName"
+             placeholder="Task title"/>
+      <textarea class="w-full px-4 py-2 mb-4 border rounded-lg text-gray-800 dark:text-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                v-model="cardDescription"
+                placeholder="Task description"/>
+      <div class="flex justify-end space-x-2">
+        <button class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                @click="confirmCardModal"
+        >
+          {{ isEditingCard ? 'OK' : 'Add' }}
         </button>
-        <button @click="closeCardModal">Cancel</button>
+        <button class="px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                @click="closeCardModal"
+        >
+          Cancel
+        </button>
       </div>
     </div>
   </div>
 </template>
-
-<style scoped>
-.column {
-  border: 1px solid #ccc;
-  padding: 1rem;
-  width: 250px;
-  background: #f9f9f9;
-  border-radius: 6px;
-  display: flex;
-  flex-direction: column;
-}
-
-.column-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-weight: bold;
-  margin-bottom: 0.5rem;
-}
-
-.column-header input {
-  flex-grow: 1;
-  padding: 0.25rem;
-}
-
-.column-actions {
-  display: flex;
-  margin-top: 1rem;
-  margin-left: auto;
-}
-
-.column-actions button {
-  margin-left: 4px;
-}
-
-.cards {
-  margin-top: 1rem;
-}
-
-.add-task input,
-.add-task textarea {
-  padding: 0.4rem;
-  width: 100%;
-}
-</style>

@@ -1,10 +1,10 @@
 <!--The MAIN page, manages Boards-->
 <script setup>
 import { ref, onMounted } from 'vue'
-import { db, collection, doc, addDoc, deleteDoc, getDocs, query, updateDoc, where } from '../../firebase.js'
+import { db, collection, doc, addDoc, deleteDoc, getDocs, query, updateDoc, where, orderBy } from '../../firebase.js'
 import { useRouter } from "vue-router";
 import {onSnapshot} from "firebase/firestore";
-import { Pencil, Trash } from 'lucide-vue-next'
+import {Pencil, Plus, Trash} from 'lucide-vue-next'
 
 const router = useRouter()
 const boards = ref([])
@@ -89,9 +89,10 @@ function routeToBoard(board) {
 // works like ngOnInit
 onMounted(() => {
   const boardsRef = collection(db, 'boards')
+  const q = query(boardsRef, orderBy('createdDt')) // 👈 sort by created date ascending
 
   // works as an observable that keep tracks on changes
-  onSnapshot(boardsRef, (snapshot) => {
+  onSnapshot(q, (snapshot) => {
     boards.value = snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data()
@@ -104,15 +105,18 @@ onMounted(() => {
   <header class="sticky top-0 shadow bg-gray-200">
     <div class="flex flex-row py-6 px-4 justify-between">
       <p class="text-3xl">Simple Kanban Board</p>
-      <button class="bg-blue-500 text-white px-4 py-2 rounded"
+      <button class="flex items-center bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 cursor-pointer align-middle"
               @click="openBoardModal(null)"
-      >Add Board
+      >
+        <Plus class="w-4 h-4"/>
+        <span class="ml-1">Board</span>
       </button>
     </div>
   </header>
 
   <div class="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-    <div class="flex flex-col justify-center p-4 bg-white rounded-xl shadow hover:bg-gray-300 transition cursor-pointer"
+    <!-- Loop through each board -->
+    <div class="flex flex-col justify-center p-4 bg-white rounded-xl shadow hover:bg-gray-300 cursor-pointer"
          v-for="(board, index) in boards"
          :key="board.id"
          @click="routeToBoard(board)"
@@ -121,13 +125,14 @@ onMounted(() => {
       <div class="flex justify-end-safe gap-4">
         <!-- Edit button-->
         <!-- @click.stop to prevent click from accidental routing -->
-        <button class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition cursor-pointer"
+        <button class="p-2 rounded-full hover:bg-gray-100 cursor-pointer"
                 aria-label="Edit"
                 @click.stop="openBoardModal(index)"
         >
           <Pencil class="w-5 h-5 text-gray-600" />
         </button>
-        <button class="p-2 rounded-full hover:bg-red-100 dark:hover:bg-red-800 transition cursor-pointer"
+        <!-- Delete button-->
+        <button class="p-2 rounded-full hover:bg-red-100 cursor-pointer"
                 aria-label="Delete"
                 @click.stop="deleteBoard(board.id)"
         >
@@ -148,7 +153,7 @@ onMounted(() => {
       <div class="flex justify-end space-x-2">
         <button class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                 @click="confirmBoardModal"
-        >{{ isEditingBoard ? 'Update' : 'Add' }}
+        >{{ isEditingBoard ? 'OK' : 'Add' }}
         </button>
         <button class="px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                 @click="closeBoardModal"
@@ -157,5 +162,4 @@ onMounted(() => {
       </div>
     </div>
   </div>
-
 </template>

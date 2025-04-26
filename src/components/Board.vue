@@ -2,8 +2,9 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { db, collection, doc, addDoc, updateDoc, deleteDoc, getDocs, where, query } from '../../firebase.js'
+import { db, collection, doc, addDoc, updateDoc, deleteDoc, getDocs, where, query, orderBy} from '../../firebase.js'
 import Column from './Column.vue'
+import { ArrowLeft, Plus } from "lucide-vue-next";
 
 const route = useRoute()
 const router = useRouter()
@@ -17,7 +18,8 @@ const isEditingColumn = ref(false)
 const editedColumnIndex = ref(null)
 
 async function fetchColumns() {
-  const q = query(collection(db, 'columns'), where('boardId', '==', boardId))
+  const q = query(collection(db, 'columns'), where('boardId', '==', boardId,  orderBy('createdDt')))
+  console.log('query', q)
   const snapshot = await getDocs(q)
   columns.value = snapshot.docs.map(doc => ({
     id: doc.id,
@@ -31,7 +33,7 @@ async function deleteColumn(index) {
   columns.value.splice(index, 1)
 }
 
-function openModal(index) {
+function openColumnModal(index) {
   if (index !== null) {
     // edit column
     columnName.value = columns.value[index].title
@@ -77,10 +79,10 @@ async function confirmColumnModal() {
       title
     })
   }
-  closeModal()
+  closeColumnModal()
 }
 
-function closeModal() {
+function closeColumnModal() {
   showModal.value = false
   columnName.value = ''
   editedColumnIndex.value = null
@@ -95,45 +97,55 @@ onMounted(fetchColumns)
 </script>
 
 <template>
-  <div class="board">
-    <h2 class="text-2xl font-bold mb-5">{{ boardName }}</h2>
-    <div class="container flex">
-      <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded" @click="routeToKanbanBoard()">← Back</button>
-      <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded" @click="openModal(null)">+ Add Column</button>
+  <header class="sticky top-0 shadow bg-gray-200">
+    <div class="flex flex-row py-6 px-4 justify-between">
+      <div class="flex">
+        <button class="text-white p-2 rounded hover:bg-gray-100 cursor-pointer"
+                @click="routeToKanbanBoard()"
+        >
+          <ArrowLeft class="w-6 h-6 text-gray-600" />
+        </button>
+        <h1 class="text-3xl px-5">{{ boardName }}</h1>
+      </div>
+      <button class="flex items-center bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 cursor-pointer align-middle"
+              @click="openColumnModal(null)"
+      >
+        <Plus class="w-4 h-4"/>
+        <span class="ml-1">Column</span>
+      </button>
     </div>
+  </header>
 
-    <div class="columns">
+  <div class="p-4 grid grid-cols-5 gap-4">
       <Column
           v-for="(column, index) in columns"
           :key="column.id"
           :column="column"
           @deleteColumn="deleteColumn(index)"
-          @editColumn="openModal(index)"
+          @editColumn="openColumnModal(index)"
       />
-    </div>
   </div>
 
   <!-- Shared Modal for Add/Edit -->
-  <div v-if="showModal" class="modal">
-    <div class="modal-content">
-      <h3>{{ isEditingColumn ? 'Edit Column' : 'Add Column' }}</h3>
-      <input v-model="columnName" placeholder="Column title" />
-      <div class="actions">
-        <button @click="confirmColumnModal">{{ isEditingColumn ? 'Update' : 'Add' }}</button>
-        <button @click="closeModal">Cancel</button>
+  <div v-if="showModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 w-full max-w-md">
+      <h3 class="text-xl font-semibold mb-4 text-gray-800 dark:text-white">{{ isEditingColumn ? 'Edit Column' : 'Add Column' }}</h3>
+      <input class="w-full px-4 py-2 mb-4 border rounded-lg text-gray-800 dark:text-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+             v-model="columnName"
+             placeholder="Column title"
+      />
+      <div class="flex justify-end space-x-2">
+        <button class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                @click="confirmColumnModal"
+        >
+          {{ isEditingColumn ? 'OK' : 'Add' }}
+        </button>
+        <button class="px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                @click="closeColumnModal"
+        >
+          Cancel
+        </button>
       </div>
     </div>
   </div>
 </template>
-
-<style scoped>
-.board {
-  padding: 1rem;
-}
-
-.columns {
-  display: flex;
-  gap: 2rem;
-  margin-top: 1rem;
-}
-</style>
