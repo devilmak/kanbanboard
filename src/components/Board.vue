@@ -135,13 +135,13 @@ onMounted(() => {
   </header>
 
   <!-- Make each column draggable -->
-  <draggable class="p-4 grid grid-cols-5 gap-4"
+  <draggable class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 p-4"
              v-model="columns"
              item-key="id"
              @end="onReorder"
   >
     <template #item="{ element, index }">
-      <div class="flex flex-col p-4 bg-white rounded-xl shadow">
+      <div class="flex flex-col self-start bg-white shadow-xl rounded-lg p-4">
         <Column
             :column="element"
             @deleteColumn="deleteColumn(index)"
