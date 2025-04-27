@@ -160,10 +160,14 @@ onMounted(() => {
            @click="routeToBoard(board)">
         <span class="text-xl">{{ board.title }}</span>
         <div class="flex justify-end-safe gap-4">
-          <button @click.stop="openBoardModal(index)">
+          <button class="p-2 rounded-full hover:bg-gray-200 cursor-pointer"
+                  aria-label="Edit"
+                  @click.stop="openBoardModal(index)">
             <Pencil class="w-5 h-5 text-gray-600" />
           </button>
-          <button @click.stop="deleteBoard(board.id)">
+          <button class="p-2 rounded-full hover:bg-red-100 cursor-pointer"
+                  @click.stop="deleteBoard(board.id)"
+          >
             <Trash class="w-5 h-5 text-red-500" />
           </button>
         </div>
